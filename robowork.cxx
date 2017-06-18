@@ -3,14 +3,11 @@
  * 
  * Copyright 2017 gzj <function@gzj>
  * 
- * V1.3.1
- * check for 0123465 bug
+ * V1.3
+ * rebuild for file I/O and permutation
  * 
  */
  
-/********************************/
-/*********** INCLUDES ***********/
-/********************************/
  
 #include <iostream>
 #include <string>
@@ -18,9 +15,9 @@
 #include <fstream>
 using namespace std;
 
-/********************************/
-/*********** CONSTANT ***********/
-/********************************/
+/**********************************/
+/************ CONSTANT ************/
+/**********************************/
 
 const int moving_time=8;        //the time the robot moving between two box
 const int checking_time = 3;    //the time the robot check one raid
@@ -42,23 +39,24 @@ struct qnode{
 						//3:check  			4:catch and store
 						//5:put down        0:nothing
 	char store;   		//-1 for nothing
-	qnode *next;
+//	qnode *next;
 };
 
-/********************************/
-/*********** VARIABLE ***********/
-/********************************/
+/**********************************/
+/************ VARIABLE ************/
+/**********************************/
 
-string start_pos="0123465"; 		//0 is for invalid
-qnode queue[1000000];				//queue of node
-long head=0,tail=-1;				//head,tail for queue
-bool visited[10000000] = {false};	//if visited
-int co,flag[4]={1,1,1,1};			//count of answer
-ofstream file;           			//output file
+int start_box[7]={0,1,2,3,4,5,6};
+string start_pos="6253140"; //0 is for invalid
+qnode queue[1000000];  //queue of node
+long head=0,tail=-1;	//head,tail for queue
+bool visited[10000000] = {false}; //if visited
+int co,flag[4]={1,1,1,1};
+ofstream file;
 
-/********************************/
-/*********** FUNCTION ***********/
-/********************************/
+/**********************************/
+/************ FUNCTION ************/
+/**********************************/
 
 int my_cmp(qnode x, qnode y){
 	return x.used_time < y.used_time;
@@ -73,16 +71,6 @@ long get_hex(qnode q){
 	return hex;
 }
 
-int output(qnode q){
-	file<<" pos of box: " 			<< q.pos_box   		 << endl;
-	file<<" history of operating: " << q.history   		 << endl;
-	file<<" counting of operating: "<< q.history.length()<< endl;
-	file<<" used time: " 			<< q.used_time 		 << endl;
-	file<<" store: " 				<< q.store  		 <<endl;
-	file<<" robot position: " 		<< q.pos_robot	<<endl<<endl;
-	return 0;
-}
-
 int get_new_state(qnode now){
 	qnode q;
 	int pos_robot=now.pos_robot;
@@ -90,7 +78,7 @@ int get_new_state(qnode now){
 	
 	//1:move forword
 	q = now;
-	if (q.pos_robot<6){
+	if (q.pos_robot<7){
 		q.pos_robot++;
 		
 		hex=get_hex(q);
@@ -99,7 +87,6 @@ int get_new_state(qnode now){
 			q.used_time+=moving_time;
 			q.history+="1";
 			queue[head++]=q;
-//			output(q);
 		}
 	}
 	//2:move backword
@@ -113,7 +100,6 @@ int get_new_state(qnode now){
 			q.used_time+=moving_time;
 			q.history+="2";
 			queue[head++]=q;
-//			output(q);
 		}
 	}
 
@@ -129,16 +115,13 @@ int get_new_state(qnode now){
 			q.used_time+=putdown_time;
 			q.history+="4";
 			queue[head++]=q;
-//			output(q);
 		}
 	}
 	//5:put down
 	q = now;
 	if ((pos_robot>=0) && (q.store>'0')) {
-		char tmp;
-		tmp = q.pos_box[pos_robot];
 		q.pos_box[pos_robot]=q.store;
-		q.store = tmp;
+		q.store = '0';
 		
 		hex=get_hex(q);
 		if (!visited[hex]){
@@ -146,63 +129,94 @@ int get_new_state(qnode now){
 			q.used_time+=putdown_time;
 			q.history+="5";
 			queue[head++]=q;
-//			output(q);
 		}
 	}
+	return 0;
+}
+
+int output(qnode q){	
+/*	file<<" starting pos: " 	<< start_pos  << endl;
+	file<<" pos of box: " 			<< q.pos_box   		 << endl;
+	file<<" history of operating: " 	<< q.history   		 << endl;
+	file<<" counting of operating: " << q.history.length()<< endl;
+	file<<" used time: " 			<< q.used_time 		 << endl; */
+	file << start_pos <<' ';
+	file << q.pos_box <<' ';
+	file << q.history << endl<< endl;
 	return 0;
 }
 
 int check_answer(qnode now){
 	string str="";
 	str=now.pos_box;
+	
 	if (flag[0] && (str==ans_1)){
 		output(now);
 		flag[0]=0;
-		file<<endl;
+		cout<<endl;
 		return 1;
 	}
 	if (flag[1] && (str==ans_2)){
 		output(now);
 		flag[1]=0;
-		file<<endl;
+		cout<<endl;
 		return 1;
 	}
 	if (flag[2] && (str==ans_3)){
 		output(now);
 		flag[2]=0;
-		file<<endl;
+		cout<<endl;
 		return 1;
 	}
 	if (flag[3] && (str==ans_4)){
 		output(now);
 		flag[3]=0;
-		file<<endl;
+		cout<<endl;
 		return 1;
 	}
 	return 0;
 }
 
-/********************************/
-/************* MAIN *************/
-/********************************/
-int main(){
-	
-	//initial
-	file.open("robowork1.3.1.txt");
-	file<<" 1:move forword       2:move backword"<<endl;
-	file<<" 4:catch and store    5:put down"<<endl;
-	file<<" starting pos: " 	<< start_pos  << endl<<endl;
-	qnode q={start_pos,7,-1,0,"",'0'};
-	queue[head] = q;
-	head++;
-	
+int get_next_pos(void){
+	string str="";
+	char c;
+	for (int i=0;i<7;i++){
+		c='0'+start_box[i];
+		str+=c;
+	}
+	start_pos=str;
+	next_permutation(start_box,start_box+7);
+	return 0;
+}
+
+int operate(void){
 	while(1){
 		qnode now=queue[++tail];				//dequeue
 		get_new_state(now);						//enqueue
-		if (check_answer(now) && (co<4)){		//ans??
-			co++;
+		if (check_answer(now)){		//ans??
+			return 0;
 		}
-		if (co==4) break;
+	}
+}
+
+/**********************************/
+/************** MAIN **************/
+/**********************************/
+int main(){
+	
+	//initial
+	file.open("robowork1.3.txt");
+	file<<" 1:move forword       2:move backword"<<endl;
+	file<<" 4:catch and store    5:put down"<<endl<<endl;
+	
+	
+	for(int i=0;i<10000;i++){
+		get_next_pos();
+		head=0;tail=-1;
+		qnode q={start_pos,7,-1,0,"",'0'};
+		queue[head] = q;
+		head++;
+		operate();
 	}
 	
 	file.close();
@@ -210,10 +224,7 @@ int main(){
 }
 
 
-/*int get_next_pos(){
-	next_permutation(start_pos,start_pos+7);
-	return 0;
-}
+/*
 * 
 * 
 * 
